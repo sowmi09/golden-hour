@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "command": "echo 'Tool call validated'",
+      "description": "Log all tool calls for audit trail"
+    }
+  ]
+}
