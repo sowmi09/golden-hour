@@ -16,7 +16,9 @@ import urllib.error
 from unittest.mock import MagicMock, patch
 
 from app.agent import (
+    fetch_active_disasters,
     fetch_flood_forecast,
+    fetch_gdacs_cyclone_events,
     fetch_gdacs_earthquake_events,
     fetch_gdacs_events,
     fetch_usgs_earthquakes,
@@ -128,15 +130,64 @@ def test_fetch_gdacs_earthquake_events_success(mock_urlopen) -> None:
     )
 
 
+@patch("urllib.request.urlopen")
+def test_fetch_gdacs_cyclone_events_success(mock_urlopen) -> None:
+    mock_response = MagicMock()
+    mock_response.read.return_value = b'{"events": []}'
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+
+    result = fetch_gdacs_cyclone_events()
+    assert result == '{"events": []}'
+
+    args, _kwargs = mock_urlopen.call_args
+    req = args[0]
+    assert (
+        req.full_url
+        == "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=TC"
+    )
+
+
+@patch("urllib.request.urlopen")
+def test_fetch_active_disasters_success(mock_urlopen) -> None:
+    mock_response_fl = MagicMock()
+    mock_response_fl.read.return_value = b'{"features": [{"properties": {"eventtype": "FL", "country": "India", "alertlevel": "Orange", "alertscore": 2.0}}]}'
+
+    mock_response_eq = MagicMock()
+    mock_response_eq.read.return_value = b'{"features": [{"properties": {"eventtype": "EQ", "country": "Japan", "alertlevel": "Red", "alertscore": 3.0}}]}'
+
+    mock_response_tc = MagicMock()
+    mock_response_tc.read.return_value = b'{"features": [{"properties": {"eventtype": "TC", "country": "Philippines", "alertlevel": "Red", "alertscore": 3.5}}]}'
+
+    mock_cm_fl = MagicMock()
+    mock_cm_fl.__enter__.return_value = mock_response_fl
+
+    mock_cm_eq = MagicMock()
+    mock_cm_eq.__enter__.return_value = mock_response_eq
+
+    mock_cm_tc = MagicMock()
+    mock_cm_tc.__enter__.return_value = mock_response_tc
+
+    mock_urlopen.side_effect = [mock_cm_fl, mock_cm_eq, mock_cm_tc]
+
+    result = fetch_active_disasters()
+
+    assert "Cyclone in Philippines (Alert Level: Red)" in result
+    assert "Earthquake in Japan (Alert Level: Red)" in result
+    assert "Flood in India (Alert Level: Orange)" in result
+    assert mock_urlopen.call_count == 3
+
+
 def test_validate_disaster_query() -> None:
     # Valid queries containing keywords
     assert validate_disaster_query("What is the flood situation in Kerala?") is True
-    assert validate_disaster_query("Tell me about the latest earthquake in India") is True
+    assert (
+        validate_disaster_query("Tell me about the latest earthquake in India") is True
+    )
     assert validate_disaster_query("Are there any tsunami warnings for Japan?") is True
     assert validate_disaster_query("What's the wildfire alert status?") is True
+    assert validate_disaster_query("Is there a tropical storm warning?") is True
 
     # Invalid queries containing no disaster keywords
     assert validate_disaster_query("Why is the sky blue?") is False
     assert validate_disaster_query("How do I cook a chocolate cake?") is False
     assert validate_disaster_query("Hello there, nice to meet you!") is False
-
