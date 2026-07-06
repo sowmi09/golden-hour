@@ -9,12 +9,14 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+# See the License for the do governing permissions and
 # limitations under the License.
 import os
 
 import google.auth
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from google.adk.cli.fast_api import get_fast_api_app
 from google.cloud import logging as google_cloud_logging
 
@@ -44,10 +46,17 @@ app: FastAPI = get_fast_api_app(
     artifact_service_uri=artifact_service_uri,
     allow_origins=allow_origins,
     session_service_uri=session_service_uri,
-    otel_to_cloud=True,
+    otel_to_cloud=False,
 )
 app.title = "flood-anticipation-agent"
 app.description = "API for interacting with the Agent flood-anticipation-agent"
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/chat")
+async def serve_chatbot():
+    return FileResponse("app/static/index.html")
 
 
 @app.post("/feedback")

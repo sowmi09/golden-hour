@@ -171,9 +171,9 @@ def test_fetch_active_disasters_success(mock_urlopen) -> None:
 
     result = fetch_active_disasters()
 
-    assert "Cyclone in Philippines (Alert Level: Red)" in result
-    assert "Earthquake in Japan (Alert Level: Red)" in result
-    assert "Flood in India (Alert Level: Orange)" in result
+    assert "TC: TC in Philippines - Alert: Red" in result
+    assert "EQ: EQ in Japan - Alert: Red" in result
+    assert "FL: FL in India - Alert: Orange" in result
     assert mock_urlopen.call_count == 3
 
 

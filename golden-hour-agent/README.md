@@ -1,178 +1,190 @@
-# Golden Hour Disaster Response Agent
+# Golden Hour: Racing Disaster Response with Anticipatory AI
 
-Golden Hour is an upgraded multi-agent disaster response system designed to serve disaster management teams, NDRF/first responder field commanders, hospital/medical coordinators, transport and logistics teams, and public communication officers. It processes plain-language user queries to produce structured, role-specific action briefs during floods and earthquakes.
-
----
-
-## How the AI agents work together
-
-Golden Hour uses a three-agent system to coordinate information routing and specialize in disaster types:
-
-- **root_agent**: Acts as the initial security gate and orchestrator. It inspects all incoming plain-language user requests. If the request is not related to a supported natural disaster, it rejects it immediately. Otherwise, it routes the query to the correct specialist agent. It also determines the country context to use the appropriate emergency management authorities.
-- **flood_agent**: Operating in *Anticipate Mode*, it queries GDACS and NOAA NWPS tools to assess active flood events and river stage levels, producing a detailed 5-packet disaster brief.
-- **earthquake_agent**: Operating in *Respond Mode*, it fetches significant earthquake events from the USGS and active GDACS earthquake feeds, retrieves PAGER details, and produces a structured 5-packet situation assessment.
+**Track:** Agents for Good
+**GitHub:** https://github.com/sowmi09/golden-hour
 
 ---
 
-## Architecture
+## The Problem
 
-Below is the Mermaid flowchart representing the multi-agent orchestration, tool calls, and security checks. You can also view this in the [docs/architecture.md](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/docs/architecture.md) file.
+When a major disaster strikes, the first hours are the most critical — and also the most chaotic. Rescue teams do not always know where to go first. Aid agencies do not know what is needed or where. Hospitals do not know how many casualties to expect. Transport coordinators do not know which roads are blocked. Public communication officers are scrambling while misinformation spreads on social media.
 
-```mermaid
-graph TD
-    UserQuery[User Query] --> RootAgent[root_agent]
-    RootAgent --> SecurityGate{Security Gate Check}
-    SecurityGate -- "Reject (Not Disaster)" --> RejectResponse[Rejection Message]
-    SecurityGate -- "Allow (Is Disaster)" --> Routing{Route by Disaster Type}
-    
-    Routing -- Flood --> FloodAgent[flood_agent]
-    Routing -- Earthquake --> EarthquakeAgent[earthquake_agent]
-    Routing -- Cyclone --> CycloneAgent[cyclone_agent]
-    Routing -- Help/Donations --> HelperAgent[helper_agent]
-    
-    %% flood_agent API calls
-    FloodAgent --> FloodAPI1[fetch_gdacs_events]
-    FloodAgent --> FloodAPI2[fetch_flood_forecast]
-    
-    %% earthquake_agent API calls
-    EarthquakeAgent --> EQAPI1[fetch_usgs_earthquakes]
-    EarthquakeAgent --> EQAPI2[fetch_usgs_event_detail]
-    EarthquakeAgent --> EQAPI3[fetch_gdacs_earthquake_events]
+These questions take hours to answer manually. And by the time a clear picture forms, the most critical window — the golden hour — has already slipped away.
 
-    %% cyclone_agent API calls
-    CycloneAgent --> CycloneAPI1[fetch_gdacs_cyclone_events]
+This pattern has repeated across every major disaster in recent years. In the 2023 Turkey-Syria earthquakes, fragmented coordination slowed aid to millions. In the 2026 Venezuela earthquakes, a magnitude 7.5 event struck with no pre-positioned response plan. Different places, different disasters — the same gap between when something happens and when a real coordinated plan gets made.
 
-    %% root_agent API calls
-    RootAgent --> ActiveDisastersAPI[fetch_active_disasters]
-    
-    %% Outputs
-    FloodAPI1 & FloodAPI2 --> BuildFloodPackets[Generate 5 Output Packets]
-    EQAPI1 & EQAPI2 & EQAPI3 --> BuildEQPackets[Generate 5 Output Packets]
-    CycloneAPI1 --> BuildCyclonePackets[Generate 5 Output Packets]
-    HelperAgent --> HelperFlow[Generate Tailored Guidance]
-    
-    BuildFloodPackets --> P1[Packet 1: District Commander]
-    BuildFloodPackets --> P2[Packet 2: Search & Rescue]
-    BuildFloodPackets --> P3[Packet 3: Hospital & Medical]
-    BuildFloodPackets --> P4[Packet 4: Transport & Logistics]
-    BuildFloodPackets --> P5[Packet 5: Public Communication]
-    
-    BuildEQPackets --> P1_eq[Packet 1: District Commander]
-    BuildEQPackets --> P2_eq[Packet 2: Search & Rescue]
-    BuildEQPackets --> P3_eq[Packet 3: Hospital & Medical]
-    BuildEQPackets --> P4_eq[Packet 4: Transport & Logistics]
-    BuildEQPackets --> P5_eq[Packet 5: Public Communication]
+But Golden Hour is not just for response teams. After every disaster, millions of people want to help — the general public, NGOs, companies, news channels, and government departments — but don't know how to contribute effectively. That gap is equally painful and equally unsolved.
 
-    BuildCyclonePackets --> P1_cy[Packet 1: District Commander]
-    BuildCyclonePackets --> P2_cy[Packet 2: Search & Rescue]
-    BuildCyclonePackets --> P3_cy[Packet 3: Hospital & Medical]
-    BuildCyclonePackets --> P4_cy[Packet 4: Transport & Logistics]
-    BuildCyclonePackets --> P5_cy[Packet 5: Public Communication]
-
-    style RootAgent fill:#f9f,stroke:#333,stroke-width:2px
-    style FloodAgent fill:#bbf,stroke:#333,stroke-width:2px
-    style EarthquakeAgent fill:#fbb,stroke:#333,stroke-width:2px
-    style CycloneAgent fill:#fdf,stroke:#333,stroke-width:2px
-    style HelperAgent fill:#dff,stroke:#333,stroke-width:2px
-    style SecurityGate fill:#ff9,stroke:#333,stroke-width:2px
-```
+**Golden Hour asks: what if one AI system could serve everyone at once?**
 
 ---
 
-## How it works — step by step
+## The Key Insight: Not All Disasters Are the Same
 
-1. **Step 1: User types a plain-language disaster query** — A user submits a query such as "What is the flood situation in Kerala?" or "Tell me about the latest earthquake in India" without needing to know any IDs.
-2. **Step 2: root_agent validates — is this a disaster query?** — Before any external APIs are invoked or LLM reasoning takes place, the system validates the input against disaster keyword patterns. If the query is unrelated (e.g., "how to bake a cake"), it is rejected immediately.
-3. **Step 3: If yes, root_agent detects disaster type and routes to specialist** — The [root_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L321) determines the disaster category and delegates the task to either [flood_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L207) or [earthquake_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L258). It also extracts the geographic context to apply regional agencies and emergency contacts.
-4. **Step 4: Specialist agent calls live government APIs automatically** — The specialist agent uses its tools to fetch live disaster and forecasting data from NOAA, USGS, or GDACS endpoints.
-5. **Step 5: Agent produces 5 role-specific action packets** — The specialist agent leverages the [disaster-report-formatter](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/.agents/skills/disaster-report-formatter) skill to structure the output into 5 tailored packets for the District/Regional Commander, Search & Rescue Field Commander, Hospital & Medical Coordinator, Transport & Logistics Coordinator, and Public Communication Officer.
-6. **Step 6: Response delivered in under 30 seconds** — The compiled response with all five action packets is delivered quickly and reliably to the user.
+Most AI disaster projects make one critical mistake — they treat all disasters as if they can be predicted. They cannot.
+
+Floods, cyclones, and wildfire danger are genuinely forecastable. Rivers rise slowly. Weather models predict storms days ahead. But earthquakes and tsunamis cannot be predicted — no scientist, no government, no AI system on Earth can tell you when or where one will strike.
+
+Golden Hour is built around this honest distinction and operates in two modes:
+
+**Anticipate Mode** — for floods and cyclones. The agent acts on forecast data days before the disaster arrives, drafting pre-event response plans and resource pre-positioning guidance.
+
+**Respond Mode** — for earthquakes and tsunamis. The moment a significant earthquake is detected, the agent pulls USGS PAGER impact data and drafts a situation report within minutes — not a prediction, but a rapid structured response.
+
+This honesty is our biggest differentiator. Existing systems either warn seconds before shaking (ShakeAlert, JMA) or give raw numbers to institutional subscribers (USGS PAGER). Golden Hour fills the gap: turning those numbers into readable, actionable plans — fast, and for anyone.
+
+---
+
+## Who Is This For?
+
+Golden Hour serves five types of users from a single platform:
+
+- **Government Officials and Emergency Managers** — get role-specific action packets with correct local agencies, helplines, and resource activation guidance
+- **NDRF/Search & Rescue Commanders** — get deployment priorities, equipment lists, and access route status
+- **Hospital and Medical Coordinators** — get expected injury types, casualty estimates, and surge capacity guidance
+- **NGOs, Companies, and Volunteers** — get tailored guidance on how to contribute effectively without duplicating government effort
+- **News Channels and Media** — get verified facts, correct helplines to broadcast, and misinformation to counter
+
+---
+
+## The Solution: Golden Hour Multi-Agent System
+
+Golden Hour is a multi-agent AI system built using Google's Agent Development Kit (ADK), developed entirely using Antigravity IDE and Antigravity CLI throughout the 5-Day AI Agents Intensive course.
+
+### Agent Architecture
+
+The system has five agents working together:
+
+**root_agent (Orchestrator)**
+The entry point for all queries. It collects user registration details (name, country, role) on first interaction, then acts as a security gate rejecting non-disaster queries, and routes to the correct specialist agent based on query type and user role.
+
+**flood_agent (Anticipate Mode)**
+Activated for floods, rainfall, and river-related queries. Calls GDACS flood events API and NOAA NWPS for detailed river gauge forecast data. Produces 5 role-specific action packets using correct country-appropriate agencies.
+
+**earthquake_agent (Respond Mode)**
+Activated for earthquakes, seismic events, and tsunamis. Calls USGS significant earthquake feed, USGS event detail API for PAGER impact data, and GDACS earthquake events. Never uses the word "predict" — always states post-event estimation.
+
+**cyclone_agent (Anticipate Mode)**
+Activated for cyclones, typhoons, hurricanes, and severe storms. Calls GDACS cyclone events API. Produces 5 role-specific packets with meteorological guidance specific to the affected country.
+
+**helper_agent (Public Help Connector)**
+Activated when users want to help, donate, volunteer, or coordinate relief. Provides tailored guidance for General Public, NGOs, Companies, News Channels, and Government Officials — connecting helpers with the right channels in the affected country.
+
+### The Five-Packet Output
+
+Every disaster query produces five simultaneous role-specific action packets:
+
+- **Packet 1:** Regional Emergency Commander — decisions, population at risk, resource activation
+- **Packet 2:** Search & Rescue Commander — deployment zones, equipment, access routes
+- **Packet 3:** Hospital & Medical Coordinator — injury types, casualty estimates, hospitals to activate
+- **Packet 4:** Transport & Logistics Coordinator — road damage, alternative routes, helicopter needs
+- **Packet 5:** Public Communication Officer — draft advisory, helplines, evacuation guidance
+
+One plain-language input → five simultaneous role-specific action packets in under 30 seconds.
+
+### Country Intelligence
+
+The system automatically detects the country from the location mentioned and uses correct local agencies for every country — NDRF and ASDMA for India, FEMA for USA, NDRRMC for Philippines, FANB and Civil Protection for Venezuela, BASARNAS and BNPB for Indonesia. No hardcoded country lists — the LLM's built-in knowledge is used to identify the right agencies for any of the 196 countries on Earth.
+
+---
+
+## Data Sources
+
+All data sources are free, public, and require no API keys:
+
+| Source | What it provides |
+|---|---|
+| NOAA National Water Prediction Service | River level forecasts up to 10 days ahead |
+| GDACS Flood Events API | Active global flood alerts |
+| GDACS Cyclone Events API | Active global tropical cyclone alerts |
+| USGS Earthquake GeoJSON Feed | Significant earthquakes, updated in real time |
+| USGS Event Detail API | PAGER alert level, estimated fatalities, shaking intensity |
+| GDACS Earthquake Events API | Global earthquake coordination data |
 
 ---
 
 ## Course Concepts Demonstrated
 
-- **Multi-agent system (ADK)**: Built using the Google Agent Development Kit (ADK) in [app/agent.py](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py). It implements hierarchical orchestration with a supervisor agent ([root_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L321)) delegating specifically to domain-expert sub-agents ([flood_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L207) and [earthquake_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L258)).
-- **Security features**: Implemented robust input validation boundaries and policies. Key security features include:
-  * Strict input validation check ([validate_disaster_query](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L180)) preventing API wastage and prompt injection.
-  * Rejection gate logic inside [root_agent](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/app/agent.py#L321) to enforce safety bounds before invoking LLMs or external tools.
-  * Localized response teams by country detection to prevent routing incorrect emergency contact instructions.
-  * Audit logs using [hooks.json](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/.agents/hooks.json) to monitor all tool execution events.
-- **Antigravity**: Used for developer workflow automation, environment workspace context management, and progressive disclosure design.
-- **Agent skills (CLI)**: Leverages the [disaster-report-formatter](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/.agents/skills/disaster-report-formatter) custom skill located under [.agents/skills/disaster-report-formatter](file:///c:/Users/admin/agy2-projects/golden-hour/golden-hour-agent/.agents/skills/disaster-report-formatter) to isolate complex reporting schemas and ensure consistent output shapes.
+Golden Hour demonstrates four of the six required course concepts:
+
+**1. Multi-Agent System (ADK) — Code**
+Five ADK agents: root_agent orchestrates, four specialists handle flood, earthquake, cyclone, and public help. Agent transfer verified in ADK dev-ui trace with routing diagram.
+
+**2. Security Features — Code**
+- CONTEXT.md with strict scope and country-detection rules
+- Input validation function rejecting non-disaster queries before any API call
+- PreToolUse hooks.json for tool execution audit trail
+- No API keys stored anywhere in code
+- Country-appropriate response teams for every country
+
+**3. Antigravity — Video**
+Entire project built using Antigravity IDE and Antigravity CLI — from scaffolding the ADK project with agents-cli, to writing and refining all agent code, to creating the custom skill.
+
+**4. Agent Skills (CLI) — Code**
+Custom Antigravity Agent Skill called disaster-report-formatter created at .agents/skills/disaster-report-formatter/SKILL.md, following the progressive disclosure pattern from Day 3. agents-cli used for scaffolding, linting, and testing throughout.
 
 ---
 
-## What the agent actually produces
+## Verified Demo Results
 
-Whenever a disaster query is processed, the system produces five role-specific, actionable packets:
+**Demo 1 — Registration Flow**
+User says "Hi" → root_agent asks for name, country, role → User provides details → System personalises all subsequent responses based on role and country.
 
-- **Packet 1 - District / Regional Commander (DDMA / FEMA / NDRRMC)**: Decisions to make, population at risk, priority areas, and evacuation zone resources.
-- **Packet 2 - Search & Rescue Field Commander (NDRF / Search & Rescue)**: Deployment priorities, building collapse risks, required search and rescue gear, and access routes.
-- **Packet 3 - Hospital & Medical Coordinator**: Expected injuries (waterborne disease, crush syndrome, hypothermia), casualty range estimates, hospital surge activations, and blood bank reserve alerts.
-- **Packet 4 - Transport & Logistics Coordinator**: Infrastructure damage assessments, alternative route suggestions, heavy debris removal equipment, and helicopter landing zones.
-- **Packet 5 - Public Communication Officer**: Clean public advisories, crucial warnings (such as aftershocks or water safety rules), emergency help numbers, and shelter directions.
+**Demo 2 — Assam Flood (India)**
+Query: "What is the flood situation in Assam right now?"
+Result: Routed to flood_agent → called GDACS API → produced 5 packets with Indian agencies (ASDMA, NDRF, SDRF), specific districts, correct helplines (1070, 1077). Total latency: under 30 seconds.
 
----
+**Demo 3 — Venezuela Earthquake**
+Query: "Tell me about the Venezuela earthquake June 2026"
+Result: Routed to earthquake_agent → autonomously resolved USGS event ID us6000t7zp → fetched PAGER Red alert → produced 5 packets with Venezuelan agencies (FANB, PAHO, Civil Protection, Ven 911). Never used the word "predict."
 
-## Where the data comes from
+**Demo 4 — Public Help (NGO)**
+Query: "Our NGO wants to help flood victims"
+Result: Routed to helper_agent → provided NGO-specific guidance on coordination, approved relief camp zones, inter-agency contacts, what is most needed.
 
-Golden Hour pulls live information keylessly from five primary, public endpoints:
-
-- **NOAA NWPS**: River stage flow data and forecasts (up to 10 days ahead) for specific gauges.
-- **Open-Meteo GloFAS**: Global flood and discharge forecasts.
-- **USGS GeoJSON + PAGER**: Significant earthquakes details, magnitude, depth, location, and shaking impact estimations.
-- **GDACS Floods**: Active global flood events and alert severity categories.
-- **GDACS Earthquakes**: Active global earthquake and seismic events.
-
----
-
-## Security features
-
-To safeguard disaster response environments, Golden Hour incorporates several security layers:
-
-- **Non-disaster queries are rejected immediately**: Any query not matching disaster topics is caught at the front door.
-- **Country detection uses correct local teams**: The system detects the country from the query location to map response briefs to appropriate native agencies (e.g. NDRF in India, FEMA in the USA, NDRRMC in the Philippines), preventing incorrect emergency instructions or phone numbers.
-- **No API keys stored in code**: All tool integrations use public, keyless APIs, avoiding credentials leaking.
-- **Input validation on all queries**: An input validation gate verifies keywords before initiating any LLM calls or tool lookups.
-- **Audit hooks on all tool calls**: Built-in PreToolUse hooks log all tool invocations for compliance and audit trails.
+**Demo 5 — Security Gate**
+Query: "Why is the sky blue?"
+Result: Immediately rejected — "Golden Hour only handles disaster response and relief coordination." No API calls made, zero cost wasted.
 
 ---
 
-## Project Structure
+## What This Project Is NOT
 
-```
-golden-hour-agent/
-├── .agents/               # Security context policies and event hooks
-│   ├── CONTEXT.md             # Security and scope guidelines
-│   ├── hooks.json             # Pre-tool audit logs
-│   └── skills/                # Custom Antigravity skills
-├── app/                   # Core agent code
-│   ├── agent.py               # Multi-agent layout, tools, and app wrapper
-│   └── app_utils/             # telemetry and typings
-├── tests/                 # Unit and integration tests
-├── pyproject.toml         # Python environment configuration
-└── README.md              # Project documentation
-```
+- Does not predict earthquakes — nobody can
+- Is not a certified emergency system connected to real response teams
+- Is not claimed to have improved any real disaster outcome
+- Is a working prototype demonstrating agentic architecture for disaster response and public coordination
 
 ---
 
-## Setup Instructions
+## Future Roadmap
 
-Run the following commands in your terminal to set up the environment and launch the local web server:
+**Phase 2:** User analytics via Google Sheets — track who uses Golden Hour, from which countries, for which disaster types, to improve the system over time.
 
-```bash
-# Clone the repository
-git clone https://github.com/sowmi09/golden-hour
-cd golden-hour/golden-hour-agent
+**Phase 3:** Public help connector embedded in news channel websites — readers see live disaster status and can directly contribute via verified channels.
 
-# Install dependencies and sync virtualenv
-uv sync
+**Phase 4:** Government dashboard — real-time supply tracking, damage assessment status, and resource gap identification.
 
-# Configure environment variables
-set GOOGLE_GENAI_USE_VERTEXAI=False
-set GEMINI_API_KEY=your_key_here
+**Phase 5:** India-specific river data integration — once CWC (Central Water Commission) opens their public API, replace NOAA NWPS with granular Indian river gauge data.
 
-# Launch local ADK web server
-uv run adk web app --host 127.0.0.1 --port 8080
-```
+---
+
+## The Build Journey
+
+Built entirely using the 5-Day AI Agents Intensive course tools:
+
+- **Day 1:** Antigravity IDE project setup, initial Cloud Run exploration
+- **Day 2:** MCP server configuration, Antigravity CLI for all API connections
+- **Day 3:** Multi-agent ADK project scaffolded using agents-cli, custom disaster-report-formatter skill created
+- **Day 4:** Security features added — CONTEXT.md, hooks.json, input validation, 10 unit tests passing
+- **Day 5:** Frontend built, full integration testing, demo verification across 5 disaster scenarios
+
+The key lesson: genuine agentic engineering is not about monitor-and-summarize. It is about autonomous multi-step reasoning — detecting an event, routing to the right specialist, fetching real data, producing role-specific action packets, and connecting helpers — all from a single plain-language input.
+
+---
+
+## GitHub Repository
+
+**https://github.com/sowmi09/golden-hour**
+
+Setup instructions, architecture diagrams, and full implementation documentation in the repository README and IMPLEMENTATION.md files.

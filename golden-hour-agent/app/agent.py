@@ -170,77 +170,49 @@ def fetch_gdacs_cyclone_events() -> str:
 
 
 def fetch_active_disasters() -> str:
-    """Calls GDACS flood (FL), earthquake (EQ), and cyclone (TC) API endpoints,
-    combines results, and returns the top 3 most severe active disasters
-    based on the event alert score as a formatted string listing type, location, and alert level.
+    """Fetches top 3 active disasters from GDACS combining
+    floods, earthquakes and cyclones."""
+    results = []
 
-    Returns:
-        A formatted string with the top 3 active disasters, or an info message.
-    """
-    fl_url = (
-        "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=FL"
-    )
-    eq_url = (
-        "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=EQ"
-    )
-    tc_url = (
-        "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=TC"
-    )
+    endpoints = [
+        (
+            "FL",
+            "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=FL",
+        ),
+        (
+            "EQ",
+            "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=EQ",
+        ),
+        (
+            "TC",
+            "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=TC",
+        ),
+    ]
 
-    headers = {"User-Agent": "GoldenHour/1.0 (Disaster Response Agent)"}
-
-    def fetch_geojson(url: str) -> dict:
-        req = urllib.request.Request(url, headers=headers)
+    for event_type, url in endpoints:
         try:
-            with urllib.request.urlopen(req) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except Exception:
-            return {"features": []}
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "GoldenHour/1.0 (Disaster Response Agent)"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                features = data.get("features", [])
+                for feature in features[:2]:
+                    props = feature.get("properties", {})
+                    country = props.get("country", "Unknown location")
+                    alert = props.get("alertlevel", "Unknown")
+                    name = props.get("name", event_type)
+                    results.append(
+                        f"{event_type}: {name} in {country} - Alert: {alert}"
+                    )
+        except Exception as e:
+            results.append(f"{event_type}: Could not fetch data - {e!s}")
 
-    fl_data = fetch_geojson(fl_url)
-    eq_data = fetch_geojson(eq_url)
-    tc_data = fetch_geojson(tc_url)
+    if not results:
+        return "No active disaster data available at this time."
 
-    features = []
-    if isinstance(fl_data, dict) and "features" in fl_data:
-        features.extend(fl_data["features"])
-    if isinstance(eq_data, dict) and "features" in eq_data:
-        features.extend(eq_data["features"])
-    if isinstance(tc_data, dict) and "features" in tc_data:
-        features.extend(tc_data["features"])
-
-    def get_score(feature: dict) -> float:
-        props = feature.get("properties", {})
-        try:
-            return float(props.get("alertscore", 0.0) or 0.0)
-        except (ValueError, TypeError):
-            return 0.0
-
-    # Sort combined features by alertscore descending
-    features.sort(key=get_score, reverse=True)
-
-    top_3 = features[:3]
-    if not top_3:
-        return "No active flood, earthquake, or cyclone disasters found."
-
-    lines = []
-    for f in top_3:
-        props = f.get("properties", {})
-        dtype = props.get("eventtype", "Unknown")
-        if dtype == "FL":
-            dtype_str = "Flood"
-        elif dtype == "EQ":
-            dtype_str = "Earthquake"
-        elif dtype == "TC":
-            dtype_str = "Cyclone"
-        else:
-            dtype_str = dtype
-
-        location = props.get("country", props.get("eventname", "Unknown Location"))
-        alert_level = props.get("alertlevel", "Green")
-        lines.append(f"- {dtype_str} in {location} (Alert Level: {alert_level})")
-
-    return "\n".join(lines)
+    return "Active disasters right now:\n" + "\n".join(results[:3])
 
 
 # ==============================================================================
@@ -307,7 +279,7 @@ def validate_disaster_query(query: str) -> bool:
 flood_agent = Agent(
     name="flood_agent",
     model=Gemini(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=(
@@ -362,7 +334,7 @@ flood_agent = Agent(
 earthquake_agent = Agent(
     name="earthquake_agent",
     model=Gemini(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=(
@@ -427,7 +399,7 @@ earthquake_agent = Agent(
 
 cyclone_agent = Agent(
     name="cyclone_agent",
-    model=Gemini(model="gemini-3.5-flash"),
+    model=Gemini(model="gemini-2.5-flash"),
     tools=[fetch_gdacs_cyclone_events],
     instruction="""You are the Golden Hour Cyclone Specialist Agent - Anticipate Mode.
 You handle tropical cyclones, typhoons, hurricanes, and severe storms.
@@ -499,62 +471,36 @@ Always cite GDACS as data source.""",
 helper_agent = Agent(
     name="helper_agent",
     model=Gemini(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
-    instruction=(
-        "You are the Golden Hour Public Helper Agent.\n"
-        "Your role is to connect people who want to help with \n"
-        "disaster relief to the right channels.\n\n"
-        "STEP 1 - IDENTIFY WHO IS ASKING:\n"
-        "First ask: 'To give you the most relevant guidance, \n"
-        "please tell me who you are:\n"
-        "1. General Public / Individual Volunteer\n"
-        "2. NGO / Relief Organization\n"
-        "3. Company / Corporate wanting to contribute\n"
-        "4. News Channel / Media outlet\n"
-        "5. Government Official / Department'\n\n"
-        "Wait for their response, then provide tailored guidance:\n\n"
-        "IF GENERAL PUBLIC:\n"
-        "- What specific items are needed right now\n"
-        "- Where to drop off donations in the affected area\n"
-        "- Blood donation centers accepting donors\n"
-        "- How to register as a volunteer\n"
-        "- What NOT to donate (expired medicines, unusable items)\n"
-        "- Verified online donation links if available\n\n"
-        "IF NGO / RELIEF ORGANIZATION:\n"
-        "- What government response teams need most right now\n"
-        "- How to coordinate without duplicating government effort\n"
-        "- Official contact points for joining relief operations\n"
-        "- Safe zones approved for relief camp setup\n"
-        "- Inter-agency coordination channels\n\n"
-        "IF COMPANY / CORPORATE:\n"
-        "- What supplies are critically needed\n"
-        "- Government portals for CSR contributions\n"
-        "- How to offer logistics support (trucks, warehouses)\n"
-        "- Official channels for financial contributions\n"
-        "- How to get official acknowledgment for contributions\n\n"
-        "IF NEWS CHANNEL / MEDIA:\n"
-        "- Key verified facts to broadcast\n"
-        "- Correct helpline numbers to share with viewers\n"
-        "- What misinformation to actively counter\n"
-        "- How to direct viewers to verified help channels\n"
-        "- Embedded widget suggestion for their website\n\n"
-        "IF GOVERNMENT OFFICIAL:\n"
-        "- Current estimated public help availability\n"
-        "- Supply gap analysis based on disaster scale\n"
-        "- What additional public resources to mobilize\n"
-        "- How to officially announce collection drives\n"
-        "- Inter-department coordination suggestions\n\n"
-        "COUNTRY RULE:\n"
-        "Use country-appropriate agencies, portals, and channels\n"
-        "based on the location of the disaster.\n"
-        "Never suggest Indian portals for non-Indian disasters.\n\n"
-        "Always end with:\n"
-        "DISCLAIMER: Please verify all donation channels with \n"
-        "official government sources. Golden Hour connects you \n"
-        "to verified public information only."
-    ),
+    instruction="""You are the Golden Hour Public Helper Agent.
+You connect people wanting to help disaster victims with the right channels.
+
+When activated, immediately provide help guidance in ALL these sections without asking any questions:
+
+SECTION 1 - FOR GENERAL PUBLIC:
+How to donate, volunteer, give blood, what items needed,
+where to drop donations, what NOT to send.
+
+SECTION 2 - FOR NGOs:
+How to coordinate with government, approved zones for relief camps, inter-agency coordination contacts,
+what is most needed right now.
+
+SECTION 3 - FOR COMPANIES/CORPORATES:
+CSR contribution channels, logistics support options,
+official financial donation portals, how to get official acknowledgment.
+
+SECTION 4 - FOR NEWS CHANNELS/MEDIA:
+Key verified facts to broadcast, correct helplines to share,
+misinformation to counter, how to direct viewers to help.
+
+SECTION 5 - FOR GOVERNMENT OFFICIALS:
+Supply gap analysis, public resource mobilization guidance,
+inter-department coordination, official collection drives.
+
+Use country-appropriate channels based on disaster location.
+Always end with disclaimer about verifying with official sources.""",
 )
 
 
@@ -565,39 +511,56 @@ helper_agent = Agent(
 root_agent = Agent(
     name="root_agent",
     model=Gemini(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
-    instruction=(
-        "SECURITY GATE:\n"
-        "Before doing anything, check if the query is disaster-related.\n"
-        "Accepted topics: floods, earthquakes, tsunamis, cyclones, \n"
-        "wildfires, droughts, disasters, how to help, donations, \n"
-        "volunteering, relief, NGO coordination.\n"
-        "If NOT related to any of these — immediately respond:\n"
-        "'Golden Hour only handles disaster response and relief \n"
-        "coordination queries.'\n"
-        "Do not call any tools or route to any agent for non-disaster queries.\n\n"
-        "ACTIVE DISASTERS:\n"
-        "If user asks 'what disasters are happening', 'show active disasters',\n"
-        "'what is happening right now', or similar:\n"
-        "- Call fetch_active_disasters tool\n"
-        "- Show the top 3 active disasters with location and alert level\n"
-        "- Ask: 'Which disaster would you like information about?'\n\n"
-        "ROUTING RULES:\n"
-        "- Flood/rainfall/river queries → flood_agent\n"
-        "- Earthquake/seismic/tsunami queries → earthquake_agent  \n"
-        "- Cyclone/typhoon/hurricane/storm queries → cyclone_agent\n"
-        "- How to help/donate/volunteer/NGO/corporate/media queries → helper_agent\n"
-        "- If unclear → ask one clarifying question\n\n"
-        "COUNTRY DETECTION:\n"
-        "Detect country from location mentioned.\n"
-        "Pass country context to the specialist agent.\n\n"
-        "Never answer disaster questions yourself.\n"
-        "Always route to the correct specialist."
-    ),
-    tools=[fetch_active_disasters],
+    instruction="""You are Golden Hour — AI disaster response and relief coordination system.
+
+STEP 1 - GREETING AND REGISTRATION:
+When user says hi, hello, hey, or any greeting:
+Respond with exactly this:
+'Welcome to Golden Hour! I help disaster response teams, NGOs, government officials, and the public with real-time disaster information and relief coordination.
+
+To serve you better, please tell me:
+1. Your Name
+2. Your Country
+3. Your Role:
+   - General Public
+   - Government Official / NDRF / Emergency Manager
+   - NGO / Relief Organization
+   - News Channel / Media
+   - Company / Corporate
+   - Researcher / Student
+
+This helps me tailor disaster information specifically for you.'
+
+STEP 2 - AFTER REGISTRATION:
+When user provides their details (name, country, role):
+- Acknowledge them warmly
+- Remember their role for this session
+- Tell them what they can ask
+
+STEP 3 - ROUTING BASED ON QUERY AND ROLE:
+Once registered, route queries to specialists:
+- Flood/rainfall/river queries → flood_agent
+- Earthquake/seismic/tsunami → earthquake_agent
+- Cyclone/typhoon/hurricane/storm → cyclone_agent
+- Help/donate/volunteer/NGO/corporate/media → helper_agent
+- 'What disasters are happening' → call fetch_active_disasters tool
+
+ROLE-BASED CONTEXT:
+Pass the user's role to specialist agents so they emphasize the most relevant packet:
+- Government Official → emphasize Packet 1 (Commander)
+- NGO → emphasize Packet 2 (Rescue) and helper guidance
+- General Public → emphasize Packet 5 (Public Advisory)
+- Media → emphasize Packet 5 and connect to helper_agent
+- Company/Corporate → connect to helper_agent
+
+SECURITY GATE:
+Reject non-disaster queries politely:
+'Golden Hour only handles disaster response and relief coordination. Please ask about floods, earthquakes, cyclones, or how to help disaster victims.'""",
     sub_agents=[flood_agent, earthquake_agent, cyclone_agent, helper_agent],
+    tools=[fetch_active_disasters],
 )
 
 

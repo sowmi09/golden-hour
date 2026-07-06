@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Hour - Disaster Response Coordinator</title>
+    <!-- Import Outfit font from Google Fonts for a premium aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0a0e1a;
+            --card-bg: #0e152b;
+            --border-color: rgba(245, 158, 11, 0.15);
+            --gold-accent: #f59e0b;
+            --gold-hover: #d97706;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --user-msg-bg: linear-gradient(135deg, #f59e0b, #d97706);
+            --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background glow effects */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 400px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(10, 14, 26, 0) 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        header {
+            text-align: center;
+            padding: 2.5rem 1.5rem 1.5rem;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .logo-container {
+            display: inline-block;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            color: var(--gold-accent);
+            font-size: 2.75rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            font-weight: 400;
+            color: var(--text-main);
+            margin-top: 0.25rem;
+            letter-spacing: 0.025em;
+        }
+
+        .tagline {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-muted);
+            margin-top: 0.75rem;
+        }
+
+        main {
+            flex: 1;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Quick Action Section */
+        .quick-actions-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .quick-actions-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .action-btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            font-family: var(--font-family);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn:hover {
+            border-color: var(--gold-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.1);
+            background-color: rgba(245, 158, 11, 0.03);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Chat Workspace */
+        .chat-container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(14, 21, 43, 0.5);
+        }
+
+        .chat-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .clear-btn {
+            background: transparent;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+            color: var(--text-muted);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: var(--font-family);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.05);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(245, 158, 11, 0.2);
+            border-radius: 3px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: var(--gold-accent);
+        }
+
+        .welcome-prompt {
+            text-align: center;
+            margin: auto;
+            max-width: 450px;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .welcome-icon {
+            font-size: 3rem;
+            filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.3));
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            animation: fade-in 0.3s ease-out;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--user-msg-bg);
+            color: #000;
+            font-weight: 500;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.2);
+        }
+
+        .message.agent {
+            align-self: flex-start;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Markdown/formatting styles in agent responses */
+        .message.agent strong {
+            color: var(--gold-accent);
+        }
+        
+        .message.agent h1, .message.agent h2, .message.agent h3 {
+            color: var(--gold-accent);
+            margin: 0.75rem 0 0.5rem;
+        }
+
+        .message.agent hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 0.75rem 0;
+        }
+
+        .spinner-container {
+            align-self: flex-start;
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.02);
+            padding: 0.75rem 1.25rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(245, 158, 11, 0.1);
+            border-top-color: var(--gold-accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .spinner-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Chat Input Form */
+        .chat-input-form {
+            display: flex;
+            padding: 1.25rem;
+            background-color: rgba(14, 21, 43, 0.8);
+            border-top: 1px solid var(--border-color);
+            gap: 0.75rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .chat-input {
+            width: 100%;
+            background-color: rgba(5, 8, 20, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.9rem 1.2rem;
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: var(--gold-accent);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
+            background-color: rgba(5, 8, 20, 0.9);
+        }
+
+        .chat-input::placeholder {
+            color: rgba(156, 163, 175, 0.5);
+        }
+
+        .send-btn {
+            background-color: var(--gold-accent);
+            border: none;
+            color: #000;
+            font-weight: 600;
+            padding: 0 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: var(--font-family);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2);
+        }
+
+        .send-btn:hover {
+            background-color: var(--gold-hover);
+            transform: translateY(-1px);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: rgba(5, 8, 20, 0.8);
+            margin-top: auto;
+        }
+
+        .footer-links {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .footer-links a {
+            color: var(--gold-accent);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-main);
+            text-decoration: underline;
+        }
+
+        .footer-disclaimer {
+            font-size: 0.75rem;
+            color: rgba(156, 163, 175, 0.4);
+            max-width: 500px;
+            margin: 0.5rem auto 0;
+            line-height: 1.4;
+        }
+
+        /* Keyframes & Animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-glow {
+            from { text-shadow: 0 0 10px rgba(245, 158, 11, 0.1); }
+            to { text-shadow: 0 0 25px rgba(245, 158, 11, 0.3); }
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Mobile adaptation */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.15rem;
+            }
+            .subtitle {
+                font-size: 1rem;
+            }
+            .quick-actions {
+                grid-template-columns: 1fr 1fr;
+            }
+            .chat-container {
+                height: 450px;
+            }
+            .message {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <h1>Golden Hour</h1>
+        </div>
+        <p class="subtitle">Racing disaster response with anticipatory AI</p>
+        <p class="tagline">Powered by USGS · NOAA · GDACS · Google ADK</p>
+    </header>
+
+    <main>
+        <!-- Quick Action Suggestion Buttons -->
+        <div class="quick-actions-container">
+            <p class="quick-actions-label">Quick Scenarios</p>
+            <div class="quick-actions">
+                <button class="action-btn" onclick="preFillChat('What disasters are happening right now?')">
+                    <span>📡</span> Active Disasters
+                </button>
+                <button class="action-btn" onclick="preFillChat('What is the flood situation in Assam right now?')">
+                    <span>🌊</span> Flood Alert
+                </button>
+                <button class="action-btn" onclick="preFillChat('Tell me about the latest significant earthquake')">
+                    <span>🌋</span> Earthquake Update
+                </button>
+                <button class="action-btn" onclick="preFillChat('What is the latest cyclone warning?')">
+                    <span>🌀</span> Cyclone Alert
+                </button>
+                <button class="action-btn" onclick="preFillChat('I want to help disaster victims')">
+                    <span>🤝</span> I Want to Help
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Chat Frame -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-status">
+                    <span class="status-dot"></span>
+                    <span id="session-status">Initializing Session...</span>
+                </div>
+                <button class="clear-btn" onclick="resetSession()">Clear Chat</button>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-prompt" id="welcome-prompt">
+                    <div class="welcome-icon">🔔</div>
+                    <h3>Welcome to Golden Hour Coordination</h3>
+                    <p>Enter any natural disaster inquiry, check on live hazards, or inquire how you or your group can help coordinate relief operations.</p>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="spinner-container" id="loading-spinner">
+                <div class="spinner"></div>
+                <span class="spinner-text" id="spinner-text">Synthesizing live reports...</span>
+            </div>
+
+            <!-- Input Form -->
+            <form class="chat-input-form" id="chat-form" onsubmit="sendMessage(event)">
+                <div class="input-wrapper">
+                    <input type="text" class="chat-input" id="user-input" placeholder="Type a disaster query or help question..." required autocomplete="off">
+                </div>
+                <button type="submit" class="send-btn" id="send-btn">Send</button>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            Agents for Good · Google ADK · Kaggle Capstone 2026 | 
+            <a href="https://github.com/sowmi09/golden-hour" target="_blank" rel="noopener noreferrer">GitHub Project</a>
+        </div>
+        <p id="session-analytics" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"></p>
+        <p class="footer-disclaimer">
+            Disclaimer: AI-generated assessments. Always verify with official meteorological, seismology, and emergency management sources before deployment.
+        </p>
+    </footer>
+
+    <script>
+        let sessionId = null;
+        let queryCount = 0;
+        const sessionStartTime = new Date().toLocaleString();
+
+        function updateAnalytics() {
+            const analyticsEl = document.getElementById('session-analytics');
+            if (analyticsEl) {
+                analyticsEl.textContent = `Session started: ${sessionStartTime} | Queries this session: ${queryCount}`;
+            }
+        }
+
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const welcomePrompt = document.getElementById('welcome-prompt');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const sessionStatus = document.getElementById('session-status');
+
+        // Simple markdown formatter to render headers, lists, and bold text beautifully
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let formatted = text
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/^\-\-\-$/gim, '<hr>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Bullet Lists
+                .replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
+                
+            // Wrap lists in <ul> tags
+            if (formatted.includes('<li>')) {
+                // simple grouping
+                formatted = formatted.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+            }
+            return formatted;
+        }
+
+        // Initialize Session on Load
+        async function initSession() {
+            sessionStatus.textContent = 'Session Ready';
+            updateAnalytics();
+        }
+
+        // Reset/Clear Session
+        async function resetSession() {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(welcomePrompt);
+            welcomePrompt.style.display = 'flex';
+            await initSession();
+        }
+
+        // Pre-fill chat message from buttons
+        function preFillChat(text) {
+            userInput.value = text;
+            userInput.focus();
+        }
+
+        // Send Message Handler
+        async function sendMessage(e) {
+            if (e) e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+            
+            queryCount++;
+            updateAnalytics();
+
+            // Hide welcome prompt
+            welcomePrompt.style.display = 'none';
+
+            // Render User Message
+            renderMessage(text, 'user');
+            userInput.value = '';
+
+            // Show spinner
+            loadingSpinner.style.display = 'flex';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                // Generate a random session ID using crypto.randomUUID()
+                const newSessionId = crypto.randomUUID();
+
+                // Create fresh session with POST /apps/app/users/user/sessions
+                const sessionResp = await fetch('/apps/app/users/user/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: newSessionId,
+                        state: {}
+                    })
+                });
+                if (!sessionResp.ok) throw new Error('Failed to create session');
+                const sessionData = await sessionResp.json();
+                const currentSessionId = sessionData.id || newSessionId;
+                sessionId = currentSessionId; // Update global sessionId
+                updateAnalytics();
+
+                // Create agent message container showing "Thinking..." while waiting
+                const messageEl = document.createElement('div');
+                messageEl.className = 'message agent';
+                messageEl.textContent = 'Thinking...';
+                chatMessages.appendChild(messageEl);
+
+                // POST /run_sse with the new session ID
+                const response = await fetch('/run_sse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        app_name: "app",
+                        user_id: "user",
+                        session_id: currentSessionId,
+                        new_message: {
+                            role: "user",
+                            parts: [{"text": text}]
+                        },
+                        streaming: false
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch response');
+
+                // Read response as text
+                const responseText = await response.text();
+
+                // Parse each line starting with "data: " as JSON
+                const lines = responseText.split('\n');
+                const events = [];
+                for (const line of lines) {
+                    if (line.trim().startsWith('data: ')) {
+                        const raw = line.trim().slice(6);
+                        try {
+                            const eventObj = JSON.parse(raw);
+                            events.push(eventObj);
+                        } catch (err) {
+                            // ignore JSON parse errors
+                        }
+                    }
+                }
+
+                // Find events where event.content exists and event.content.role == "model"
+                const modelEvents = events.filter(event => event.content && event.content.role === "model");
+
+                // Get the last such event and extract event.content.parts[0].text
+                let lastModelMsgText = "";
+                if (modelEvents.length > 0) {
+                    const lastEvent = modelEvents[modelEvents.length - 1];
+                    if (lastEvent.content.parts && lastEvent.content.parts.length > 0 && lastEvent.content.parts[0].text) {
+                        lastModelMsgText = lastEvent.content.parts[0].text;
+                    }
+                }
+
+                // Display in chat
+                if (lastModelMsgText) {
+                    messageEl.innerHTML = formatMarkdown(lastModelMsgText.trim());
+                } else {
+                    messageEl.textContent = "Session event generated successfully but no text output received.";
+                }
+
+            } catch (err) {
+                console.error(err);
+                renderMessage('Error: Failed to fetch response from the Golden Hour coordination server.', 'agent');
+            } finally {
+                loadingSpinner.style.display = 'none';
+                document.getElementById('spinner-text').textContent = 'Synthesizing live reports...';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Helper to render message element
+        function renderMessage(text, sender) {
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${sender}`;
+            if (sender === 'agent') {
+                messageEl.innerHTML = formatMarkdown(text);
+            } else {
+                messageEl.textContent = text;
+            }
+            chatMessages.appendChild(messageEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Initialize session on load
+        window.addEventListener('DOMContentLoaded', initSession);
+    </script>
+</body>
+</html>
